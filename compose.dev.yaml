@@ -1,0 +1,42 @@
+# Local development overrides (Docker Desktop on Windows/macOS, or Linux).
+#   docker compose -f compose.yaml -f compose.dev.yaml up --build
+# Then run the frontend on the host: cd frontend && npm run dev  (http://localhost:5173)
+#
+# Source is bind-mounted and put first on PYTHONPATH, so code edits reload
+# without rebuilding. Ports are published on 127.0.0.1 only.
+
+services:
+  caddy:
+    profiles: [prod-only]   # disabled in dev; Vite serves the frontend
+
+  api:
+    command: ["uvicorn", "intraday.api.main:app", "--host", "0.0.0.0", "--port", "8000",
+              "--reload", "--reload-dir", "/app/src"]
+    read_only: false
+    environment:
+      PYTHONPATH: /app/src
+      PUBLIC_ORIGIN: http://localhost:5173
+      COOKIE_SECURE: "false"
+    volumes: [./backend/src:/app/src:ro, ./config:/app/config:ro]
+    ports: ["127.0.0.1:8000:8000"]
+    networks: [backend, default]
+
+  engine:
+    command: ["watchfiles", "--filter", "python", "python -m intraday.engine.main", "/app/src"]
+    read_only: false
+    environment:
+      PYTHONPATH: /app/src
+    volumes: [./backend/src:/app/src:ro, ./config:/app/config:ro]
+
+  postgres:
+    ports: ["127.0.0.1:5432:5432"]
+    networks: [backend, default]
+
+  redis:
+    ports: ["127.0.0.1:6379:6379"]
+    networks: [backend, default]
+
+  migrate:
+    environment:
+      PYTHONPATH: /app/src
+    volumes: [./backend/src:/app/src:ro]

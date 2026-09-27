@@ -1,0 +1,47 @@
+# Seed watchlist (docs/design/04 symbols, decision D3). Loaded once into an empty
+# symbols table; afterwards edit the watchlist in the app.
+#
+# CLAUDE.md "Tradable assets": tradable entries must be U.S.-issuer common stock
+# on NYSE/Nasdaq. Context symbols are read-only market inputs, never tradable.
+#
+# Stream budget (Alpaca free plan): 30 symbols. Core context (3) + sector ETFs
+# referenced below (8) + tradable (17) = 28.
+#
+# market_cap is optional; the market-cap filter is skipped where it's blank.
+
+context:
+  # Core market context: no sector → always streamed.
+  - { symbol: SPY,  name: "SPDR S&P 500 ETF Trust" }
+  - { symbol: QQQ,  name: "Invesco QQQ Trust" }
+  - { symbol: VIXY, name: "ProShares VIX Short-Term Futures ETF", notes: "Volatility proxy (G3)" }
+  # Sector ETFs: streamed only if an enabled tradable symbol references them.
+  - { symbol: XLK,  name: "Technology Select Sector SPDR",             sector: Technology }
+  - { symbol: XLY,  name: "Consumer Discretionary Select Sector SPDR", sector: Consumer Discretionary }
+  - { symbol: XLC,  name: "Communication Services Select Sector SPDR", sector: Communication Services }
+  - { symbol: XLF,  name: "Financial Select Sector SPDR",              sector: Financials }
+  - { symbol: XLV,  name: "Health Care Select Sector SPDR",            sector: Health Care }
+  - { symbol: XLE,  name: "Energy Select Sector SPDR",                 sector: Energy }
+  - { symbol: XLI,  name: "Industrial Select Sector SPDR",             sector: Industrials }
+  - { symbol: XLP,  name: "Consumer Staples Select Sector SPDR",       sector: Consumer Staples }
+  - { symbol: XLU,  name: "Utilities Select Sector SPDR",              sector: Utilities }
+  - { symbol: XLB,  name: "Materials Select Sector SPDR",              sector: Materials }
+  - { symbol: XLRE, name: "Real Estate Select Sector SPDR",            sector: Real Estate }
+
+tradable:
+  - { symbol: AAPL,  name: "Apple Inc.",              sector: Technology,             sector_etf: XLK }
+  - { symbol: MSFT,  name: "Microsoft Corporation",   sector: Technology,             sector_etf: XLK }
+  - { symbol: NVDA,  name: "NVIDIA Corporation",      sector: Technology,             sector_etf: XLK }
+  - { symbol: AMD,   name: "Advanced Micro Devices",  sector: Technology,             sector_etf: XLK }
+  - { symbol: AMZN,  name: "Amazon.com, Inc.",        sector: Consumer Discretionary, sector_etf: XLY }
+  - { symbol: TSLA,  name: "Tesla, Inc.",             sector: Consumer Discretionary, sector_etf: XLY }
+  - { symbol: HD,    name: "The Home Depot, Inc.",    sector: Consumer Discretionary, sector_etf: XLY }
+  - { symbol: GOOGL, name: "Alphabet Inc. Class A",   sector: Communication Services, sector_etf: XLC }
+  - { symbol: META,  name: "Meta Platforms, Inc.",    sector: Communication Services, sector_etf: XLC }
+  - { symbol: JPM,   name: "JPMorgan Chase & Co.",    sector: Financials,             sector_etf: XLF }
+  - { symbol: BAC,   name: "Bank of America Corp.",   sector: Financials,             sector_etf: XLF }
+  - { symbol: UNH,   name: "UnitedHealth Group Inc.", sector: Health Care,            sector_etf: XLV }
+  - { symbol: LLY,   name: "Eli Lilly and Company",   sector: Health Care,            sector_etf: XLV }
+  - { symbol: XOM,   name: "Exxon Mobil Corporation", sector: Energy,                 sector_etf: XLE }
+  - { symbol: CAT,   name: "Caterpillar Inc.",        sector: Industrials,            sector_etf: XLI }
+  - { symbol: COST,  name: "Costco Wholesale Corp.",  sector: Consumer Staples,       sector_etf: XLP }
+  - { symbol: WMT,   name: "Walmart Inc.",            sector: Consumer Staples,       sector_etf: XLP }

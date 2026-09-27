@@ -1,0 +1,158 @@
+# Production definition: one Ubuntu VM, paper trading only (CLAUDE.md, docs/design/11).
+# Values come from .env (compose variable substitution). Each service receives
+# only the variables it needs; Alpaca/Anthropic keys go to the engine alone.
+#
+#   docker compose up -d --build
+#   docker compose --profile ops run --rm migrate
+#   docker compose exec api intraday create-admin
+
+name: intraday
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "20m", max-file: "5" }
+
+x-backend: &backend
+  image: intraday-backend
+  build: { context: ., dockerfile: backend/Dockerfile }
+  restart: unless-stopped
+  logging: *logging
+  read_only: true
+  tmpfs: [/tmp]
+  security_opt: ["no-new-privileges:true"]
+
+services:
+  caddy:
+    image: intraday-web
+    build: { context: ., dockerfile: infrastructure/docker/frontend.Dockerfile }
+    restart: unless-stopped
+    logging: *logging
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:?set PUBLIC_DOMAIN}
+    volumes: [caddy_data:/data, caddy_config:/config]
+    networks: [edge, backend]
+    depends_on: [api]
+    mem_limit: 128m
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:2019/config/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  api:
+    <<: *backend
+    command: ["uvicorn", "intraday.api.main:app", "--host", "0.0.0.0", "--port", "8000",
+              "--workers", "2", "--proxy-headers", "--forwarded-allow-ips", "*"]
+    environment:
+      TRADING_MODE: ${TRADING_MODE:?set TRADING_MODE}
+      DATABASE_URL: ${DATABASE_URL_API:?set DATABASE_URL_API}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET}
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?set PUBLIC_ORIGIN}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      ALPACA_STREAM_SYMBOL_LIMIT: ${ALPACA_STREAM_SYMBOL_LIMIT:-30}   # for the watchlist budget view
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      BACKUP_STATUS_FILE: /backups/last_success
+    volumes: ["${BACKUP_DIR:-/var/backups/intraday}:/backups:ro"]   # System Health: last backup
+    networks: [backend]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    mem_limit: 768m
+    cpus: 1.0
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/v1/health/ready', timeout=3).status == 200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  engine:
+    <<: *backend
+    command: ["python", "-m", "intraday.engine.main"]
+    environment:
+      TRADING_MODE: ${TRADING_MODE:?set TRADING_MODE}
+      ALPACA_BASE_URL: ${ALPACA_BASE_URL:?set ALPACA_BASE_URL}
+      ALPACA_API_KEY_ID: ${ALPACA_API_KEY_ID:-}
+      ALPACA_API_SECRET_KEY: ${ALPACA_API_SECRET_KEY:-}
+      ALPACA_DATA_FEED_DEFAULT: ${ALPACA_DATA_FEED_DEFAULT:-iex}
+      ALPACA_STREAM_SYMBOL_LIMIT: ${ALPACA_STREAM_SYMBOL_LIMIT:-30}
+      ALPACA_DATA_RATE_LIMIT: ${ALPACA_DATA_RATE_LIMIT:-200}
+      ALPACA_TRADING_RATE_LIMIT: ${ALPACA_TRADING_RATE_LIMIT:-200}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      DATABASE_URL: ${DATABASE_URL_ENGINE:?set DATABASE_URL_ENGINE}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    networks: [backend, egress]   # the only service with internet egress
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }  # engine must run even if redis is degraded
+    stop_grace_period: 60s   # never flattens on shutdown; broker brackets protect positions
+    mem_limit: 1g
+    cpus: 1.5
+    healthcheck:
+      test: ["CMD", "intraday", "healthcheck"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-intraday}
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      INTRADAY_API_DB_PASSWORD: ${INTRADAY_API_DB_PASSWORD:?set INTRADAY_API_DB_PASSWORD}
+      INTRADAY_ENGINE_DB_PASSWORD: ${INTRADAY_ENGINE_DB_PASSWORD:?set INTRADAY_ENGINE_DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init:/docker-entrypoint-initdb.d:ro
+    networks: [backend]
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    logging: *logging
+    command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru",
+              "--save", ""]
+    networks: [backend]
+    mem_limit: 192m
+
+  # One-off: docker compose --profile ops run --rm migrate
+  migrate:
+    <<: *backend
+    profiles: [ops]
+    restart: "no"
+    command: ["intraday", "db-upgrade"]
+    environment:
+      DATABASE_URL_OWNER: ${DATABASE_URL_OWNER:?set DATABASE_URL_OWNER}
+    networks: [backend]
+    depends_on:
+      postgres: { condition: service_healthy }
+
+networks:
+  edge: {}
+  backend: { internal: true }
+  egress: {}
+
+volumes:
+  pgdata: {}
+  caddy_data: {}
+  caddy_config: {}

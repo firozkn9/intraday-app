@@ -1,0 +1,5 @@
+# Shell scripts and container config run on Linux: always LF, even on Windows checkouts.
+*.sh        text eol=lf
+Caddyfile   text eol=lf
+*.Dockerfile text eol=lf
+Dockerfile  text eol=lf

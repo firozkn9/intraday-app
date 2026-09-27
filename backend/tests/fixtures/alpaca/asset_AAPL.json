@@ -1,0 +1,1 @@
+{"id": "b0b6dd9d-8b9b-48a9-ba46-b9d54906e415", "symbol": "AAPL", "name": "Apple Inc. Common Stock", "class": "us_equity", "exchange": "NASDAQ", "status": "active", "tradable": true, "marginable": true, "shortable": true, "fractionable": true, "borrow_status": "easy_to_borrow", "easy_to_borrow": true, "attributes": ["has_options"]}

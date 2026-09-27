@@ -1,0 +1,10 @@
+[Unit]
+Description=Intraday app nightly PostgreSQL backup
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=intraday
+WorkingDirectory=/opt/intraday
+ExecStart=/opt/intraday/infrastructure/scripts/backup.sh

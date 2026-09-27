@@ -1,0 +1,2 @@
+{"stream": "trade_updates", "data": {"event": "fill", "execution_id": "7f8e4f2a-0000-4000-8000-00000000abcd", "timestamp": "2026-09-21T14:13:00.456Z", "price": "101.30", "qty": "90", "position_qty": "90",
+ "order": {"id": "61e69015-8549-4bfd-b9c3-01e75843f47d", "client_order_id": "ia-20260921-EN-7f3a9c21-0", "symbol": "AAPL", "qty": "90", "filled_qty": "90", "filled_avg_price": "101.30", "order_class": "bracket", "type": "limit", "side": "buy", "time_in_force": "day", "limit_price": "101.30", "status": "filled", "legs": []}}}

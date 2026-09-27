@@ -1,0 +1,10 @@
+[Unit]
+Description=Nightly backup at 02:30 UTC (after the US session, before pre-market)
+
+[Timer]
+OnCalendar=*-*-* 02:30:00 UTC
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

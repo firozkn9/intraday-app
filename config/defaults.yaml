@@ -1,0 +1,133 @@
+# Seed runtime settings (docs/design/06-configuration-model.md §3).
+# Loaded on first start into settings_versions (version 1). After that the
+# active DB version wins; edit through the Settings UI (versioned + audited).
+# Hard limits in backend/src/intraday/core/hard_limits.py always apply.
+
+risk:
+  paper_initial_balance: 100000
+  max_capital_per_trade: 10000
+  max_total_exposure: 50000
+  max_open_positions: 5
+  max_daily_loss: 500
+  max_loss_per_trade: 100
+  max_daily_trades: 20
+  max_trades_per_symbol_per_day: 3
+  max_sector_exposure: 20000
+  max_correlated_exposure: 20000
+  correlation_threshold: 0.70
+  correlation_lookback_days: 20
+  min_risk_reward: 1.5
+  buying_power_utilization: 0.90
+  slippage_buffer_bps: 5
+  min_position_value: 500
+  reentry_cooldown_minutes: 15
+  daily_loss_action: KEEP_STOPS
+  emergency_stop_action: CLOSE_ALL
+  daily_loss_basis: WORST_CASE_OPEN_RISK
+  allow_short_selling: false
+  allow_fractional_shares: false
+
+exits:
+  default_stop_loss_percent: 1.0
+  default_take_profit_percent: 2.0
+  trailing_enabled: true
+  trailing_activation_r: 1.0
+  trailing_distance_percent: 0.75
+  max_holding_minutes: 90
+  momentum_reversal_enabled: true
+  vwap_loss_enabled: true
+  vwap_loss_bars: 2
+  regime_reversal_enabled: true
+
+hours:
+  trading_start: "09:35"
+  no_new_trades_after: "15:30"
+  force_close: "15:55"
+  trading_end: "16:00"
+  early_close_no_new_trades_offset_min: 30
+  early_close_force_close_offset_min: 5
+
+universe:
+  min_stock_price: 10
+  min_average_daily_volume: 20000   # units of the configured feed (IEX); calibrate in Phase 3
+  adv_lookback_days: 20
+  min_market_cap: 2000000000
+  max_spread_percent_iex: 0.30
+  max_spread_percent_sip: 0.10
+  min_bar_coverage: 0.80
+  max_watchlist_size: 20
+  scan_interval_minutes: 5
+
+strategies:
+  momentum_breakout:
+    enabled: true
+    stop_method: PERCENT
+    atr_multiple: 1.5
+    max_stop_percent: 2.0
+    breakout_lookback_bars: 15
+    min_rvol: 1.5
+    min_volume_increase_bars: 3
+  vwap_reclaim:
+    enabled: true
+    stop_method: PERCENT
+    atr_multiple: 1.5
+    max_stop_percent: 2.0
+    min_bars_below_vwap: 5
+    reclaim_confirm_bars: 1
+    min_rvol: 1.2
+    require_rsi_above: 50
+  pullback:
+    enabled: true
+    stop_method: PERCENT
+    atr_multiple: 1.5
+    max_stop_percent: 2.0
+    trend_min_bars: 20
+    max_pullback_percent: 1.5
+    support: EMA20
+    support_tolerance_percent: 0.2
+    min_rvol: 1.0
+
+scoring:
+  weight_momentum: 0.20
+  weight_volume: 0.20
+  weight_price_action: 0.20
+  weight_market_regime: 0.15
+  weight_volatility: 0.10
+  weight_technical: 0.10
+  weight_news: 0.05
+  min_trade_score: 0.70
+
+regime:
+  unknown_policy: DISABLE
+  bearish_policy: DISABLE
+  high_volatility_size_multiplier: 0.5
+  reduce_size_multiplier: 0.5
+
+ai:
+  mode: "OFF"
+  provider: anthropic
+  model: ""
+  effort: low
+  timeout_seconds: 10
+  max_consecutive_failures: 3
+  news_sentiment_enabled: true
+
+data:
+  feed: iex
+  stale_seconds: 120
+  bar_interval: 1Min
+
+news:
+  enabled: true
+  lookback_hours: 24
+  block_event_tags: [earnings, fda, merger_acquisition, trading_halt]
+
+execution:
+  entry_limit_offset_bps: 5
+  entry_timeout_seconds: 30
+  exit_fill_timeout_seconds: 20
+  reconcile_interval_seconds: 30
+
+alerts:
+  email_enabled: true
+  email_min_severity: HIGH
